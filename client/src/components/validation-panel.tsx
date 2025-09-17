@@ -23,7 +23,7 @@ export default function ValidationPanel({
   const [isExpanded, setIsExpanded] = useState(true);
   const [showProcessingDetails, setShowProcessingDetails] = useState(false);
 
-  const validationResults = transcript.validationResults;
+  const validationResults = transcript?.validationResults;
   
   if (!validationResults) {
     return (

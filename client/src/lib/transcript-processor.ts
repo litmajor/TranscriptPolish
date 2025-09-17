@@ -4,38 +4,80 @@ export interface ProcessingRule {
   pattern: RegExp;
   replacement: string | ((match: string, ...args: any[]) => string);
   description: string;
-  category: "discourse" | "numbers" | "dates" | "time" | "corrections" | "formatting" | "punctuation";
+  category: "discourse" | "numbers" | "dates" | "time" | "corrections" | "formatting" | "punctuation" | "structure";
+  priority: number; // Lower number = higher priority
 }
 
 export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
+  // Structure and formatting rules (highest priority)
+  {
+    name: "speaker_line_spacing",
+    pattern: /^([A-Z]:.*?)$/gm,
+    replacement: (match) => {
+      // Add spacing before each speaker line except the first
+      return `\n${match}`;
+    },
+    description: "Add spacing between speaker sections",
+    category: "structure",
+    priority: 1
+  },
+  {
+    name: "hanging_indent_formatting",
+    pattern: /^([A-Z]:)\s*(.*?)$/gm,
+    replacement: (match, speaker, content) => {
+      if (!content.trim()) return match;
+      
+      // Split content into sentences and apply hanging indent
+      const sentences = content.trim().split(/(?<=[.!?])\s+/);
+      if (sentences.length <= 1) {
+        return `${speaker} ${content.trim()}`;
+      }
+      
+      let formatted = `${speaker} ${sentences[0]}`;
+      for (let i = 1; i < sentences.length; i++) {
+        if (sentences[i].trim()) {
+          formatted += `\n     ${sentences[i]}`;
+        }
+      }
+      return formatted;
+    },
+    description: "Apply hanging indent formatting to speaker content",
+    category: "structure",
+    priority: 2
+  },
+
   // Discourse markers standardization
   {
     name: "discourse_markers",
     pattern: /\bMh\b/g,
     replacement: "Mh-Mh",
     description: "Standardize discourse markers",
-    category: "discourse"
+    category: "discourse",
+    priority: 10
   },
   {
     name: "mmhm_standardization",
     pattern: /\b(mm-?hm|mhm|mmm|hmm)\b/gi,
     replacement: "Mmhm",
     description: "Standardize mmhm responses",
-    category: "discourse"
+    category: "discourse",
+    priority: 10
   },
   {
     name: "uh_standardization",
     pattern: /\b(uh|uhh|um|umm)\b/gi,
     replacement: "Uh",
     description: "Standardize uh fillers",
-    category: "discourse"
+    category: "discourse",
+    priority: 10
   },
   {
     name: "yeah_standardization",
     pattern: /\b(yeah|yah|ya)\b/gi,
     replacement: "Yeah",
     description: "Standardize yeah responses",
-    category: "discourse"
+    category: "discourse",
+    priority: 10
   },
 
   // Number formatting - spell out 1-10
@@ -47,7 +89,8 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
       return numbers[parseInt(match) - 1];
     },
     description: "Spell out numbers 1-10",
-    category: "numbers"
+    category: "numbers",
+    priority: 15
   },
 
   // Date formatting - remove ordinal suffixes
@@ -56,7 +99,8 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     pattern: /\b(\d+)(st|nd|rd|th)\b/g,
     replacement: "$1",
     description: "Remove ordinal suffixes from dates",
-    category: "dates"
+    category: "dates",
+    priority: 15
   },
 
   // Time formatting
@@ -65,7 +109,8 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     pattern: /\b(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)\b/gi,
     replacement: "$1:$2 $3",
     description: "Standardize time format",
-    category: "time"
+    category: "time",
+    priority: 15
   },
 
   // Common transcription errors and corrections
@@ -74,42 +119,48 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     pattern: /\bejaculation\b/gi,
     replacement: "ejaculate",
     description: "Correct common mishearing",
-    category: "corrections"
+    category: "corrections",
+    priority: 20
   },
   {
     name: "pacific_specific_correction",
     pattern: /\bpacific\b/gi,
     replacement: "specific",
     description: "Correct pacific/specific confusion",
-    category: "corrections"
+    category: "corrections",
+    priority: 20
   },
   {
     name: "calvary_cavalry_correction",
     pattern: /\bcalvary\b/gi,
     replacement: "cavalry",
     description: "Correct calvary/cavalry confusion",
-    category: "corrections"
+    category: "corrections",
+    priority: 20
   },
   {
     name: "could_of_correction",
     pattern: /\bcould of\b/gi,
     replacement: "could have",
     description: "Correct could of/could have",
-    category: "corrections"
+    category: "corrections",
+    priority: 20
   },
   {
     name: "should_of_correction",
     pattern: /\bshould of\b/gi,
     replacement: "should have",
     description: "Correct should of/should have",
-    category: "corrections"
+    category: "corrections",
+    priority: 20
   },
   {
     name: "would_of_correction",
     pattern: /\bwould of\b/gi,
     replacement: "would have",
     description: "Correct would of/would have",
-    category: "corrections"
+    category: "corrections",
+    priority: 20
   },
 
   // Clean up nonsense phrases
@@ -118,14 +169,16 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     pattern: /\bbump hole there has doors\b/gi,
     replacement: "bunch of doors",
     description: "Fix garbled phrases",
-    category: "corrections"
+    category: "corrections",
+    priority: 20
   },
   {
     name: "clean_nonsense_general",
     pattern: /\b(illegible|inaudible|unclear)\b/gi,
     replacement: "[inaudible]",
     description: "Standardize unclear audio markers",
-    category: "formatting"
+    category: "formatting",
+    priority: 25
   },
 
   // Speaker interruptions and formatting
@@ -134,14 +187,16 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     pattern: /\b(but|and|so|well)\s*-{2,}\s*/gi,
     replacement: "$1—",
     description: "Standardize interruption markers",
-    category: "formatting"
+    category: "formatting",
+    priority: 25
   },
   {
     name: "multiple_dashes",
     pattern: /-{2,}/g,
     replacement: "—",
     description: "Replace multiple dashes with em dash",
-    category: "formatting"
+    category: "formatting",
+    priority: 25
   },
 
   // Punctuation corrections
@@ -150,21 +205,24 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     pattern: /\s*,\s*/g,
     replacement: ", ",
     description: "Standardize comma spacing",
-    category: "punctuation"
+    category: "punctuation",
+    priority: 30
   },
   {
     name: "period_spacing",
     pattern: /\s*\.\s*/g,
     replacement: ". ",
     description: "Standardize period spacing",
-    category: "punctuation"
+    category: "punctuation",
+    priority: 30
   },
   {
     name: "question_spacing",
     pattern: /\s*\?\s*/g,
     replacement: "? ",
     description: "Standardize question mark spacing",
-    category: "punctuation"
+    category: "punctuation",
+    priority: 30
   },
 
   // Contractions standardization
@@ -173,21 +231,42 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     pattern: /\bcan't\b/gi,
     replacement: "can't",
     description: "Standardize can't contraction",
-    category: "formatting"
+    category: "formatting",
+    priority: 30
   },
   {
     name: "wont_contraction",
     pattern: /\bwon't\b/gi,
     replacement: "won't",
     description: "Standardize won't contraction",
-    category: "formatting"
+    category: "formatting",
+    priority: 30
   },
   {
     name: "dont_contraction",
     pattern: /\bdon't\b/gi,
     replacement: "don't",
     description: "Standardize don't contraction",
-    category: "formatting"
+    category: "formatting",
+    priority: 30
+  },
+
+  // Final cleanup rules (lowest priority)
+  {
+    name: "clean_multiple_newlines",
+    pattern: /\n{3,}/g,
+    replacement: "\n\n",
+    description: "Remove excessive line breaks",
+    category: "formatting",
+    priority: 100
+  },
+  {
+    name: "clean_trailing_spaces",
+    pattern: /[ \t]+$/gm,
+    replacement: "",
+    description: "Remove trailing spaces",
+    category: "formatting",
+    priority: 101
   }
 ];
 
@@ -198,23 +277,62 @@ export function processTranscriptContent(content: string): {
   let processedContent = content;
   const appliedRules: Array<{ rule: ProcessingRule; matches: number }> = [];
 
+  // Sort rules by priority (lower number = higher priority)
+  const sortedRules = [...LVMPD_PROCESSING_RULES].sort((a, b) => a.priority - b.priority);
+
   // Apply each processing rule and track changes
-  for (const rule of LVMPD_PROCESSING_RULES) {
-    const beforeLength = processedContent.length;
+  for (const rule of sortedRules) {
     const matches = (processedContent.match(rule.pattern) || []).length;
     
     if (matches > 0) {
+      const beforeContent = processedContent;
+      
       if (typeof rule.replacement === "string") {
         processedContent = processedContent.replace(rule.pattern, rule.replacement);
       } else {
         processedContent = processedContent.replace(rule.pattern, rule.replacement);
       }
       
-      appliedRules.push({ rule, matches });
+      // Only add to applied rules if content actually changed
+      if (beforeContent !== processedContent) {
+        appliedRules.push({ rule, matches });
+      }
     }
   }
 
+  // Post-processing: ensure proper LVMPD structure
+  processedContent = applyLVMPDStructure(processedContent);
+
   return { processedContent, appliedRules };
+}
+
+function applyLVMPDStructure(content: string): string {
+  const lines = content.split('\n');
+  const processedLines: string[] = [];
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+    
+    // Skip empty lines in processing, we'll add them back strategically
+    if (!trimmedLine) {
+      continue;
+    }
+    
+    // Check if this is a speaker line
+    const isSpeakerLine = /^[A-Z]:/.test(trimmedLine);
+    
+    if (isSpeakerLine) {
+      // Add spacing before speaker lines (except the very first one)
+      if (processedLines.length > 0) {
+        processedLines.push(''); // Add blank line before new speaker
+      }
+    }
+    
+    processedLines.push(line);
+  }
+  
+  return processedLines.join('\n');
 }
 
 export function generateLVMPDHeader(detectiveInfo: any, interviewInfo: any): string {
@@ -267,6 +385,9 @@ export function generateProcessingSummary(appliedRules: Array<{ rule: Processing
       summary += `  • ${rule}\n`;
     });
   });
+
+  const totalChanges = appliedRules.reduce((sum, { matches }) => sum + matches, 0);
+  summary += `\nTotal changes applied: ${totalChanges}`;
 
   return summary;
 }
