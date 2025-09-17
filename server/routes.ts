@@ -1,6 +1,6 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-import { storage } from "./storage";
+import { getStorage } from "./storage";
 import { insertTranscriptSchema, updateTranscriptSchema } from "@shared/schema";
 import multer from "multer";
 import { z } from "zod";
@@ -11,7 +11,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get all transcripts
   app.get("/api/transcripts", async (req, res) => {
     try {
-      const transcripts = await storage.listTranscripts();
+      const transcripts = await (await getStorage()).listTranscripts();
       res.json(transcripts);
     } catch (error) {
       console.error("Error fetching transcripts:", error);
@@ -23,7 +23,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/transcripts/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const transcript = await storage.getTranscript(id);
+      const transcript = await (await getStorage()).getTranscript(id);
       
       if (!transcript) {
         return res.status(404).json({ message: "Transcript not found" });
@@ -40,7 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/transcripts", async (req, res) => {
     try {
       const validatedData = insertTranscriptSchema.parse(req.body);
-      const transcript = await storage.createTranscript(validatedData);
+      const transcript = await (await getStorage()).createTranscript(validatedData);
       res.status(201).json(transcript);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -57,7 +57,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const validatedData = updateTranscriptSchema.parse(req.body);
       
-      const transcript = await storage.updateTranscript(id, validatedData);
+      const transcript = await (await getStorage()).updateTranscript(id, validatedData);
       
       if (!transcript) {
         return res.status(404).json({ message: "Transcript not found" });
@@ -77,7 +77,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/transcripts/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const deleted = await storage.deleteTranscript(id);
+      const deleted = await (await getStorage()).deleteTranscript(id);
       
       if (!deleted) {
         return res.status(404).json({ message: "Transcript not found" });
@@ -121,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await fs.promises.unlink(filePath);
 
       // Create transcript record
-      const transcript = await storage.createTranscript({
+      const transcript = await (await getStorage()).createTranscript({
         filename: originalname,
         originalContent: content,
         detectiveInfo: {},
@@ -144,14 +144,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/transcripts/:id/process", async (req, res) => {
     const { id } = req.params;
     try {
-      const transcript = await storage.getTranscript(id);
+      const transcript = await (await getStorage()).getTranscript(id);
       
       if (!transcript) {
         return res.status(404).json({ message: "Transcript not found" });
       }
 
       // Update status to processing
-      await storage.updateTranscript(id, { status: "processing" });
+      await (await getStorage()).updateTranscript(id, { status: "processing" });
 
       // Process the transcript content (simplified version)
       let processedContent = transcript.originalContent;
@@ -215,7 +215,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       validationResults.score = Math.max(0, 100 - (validationResults.issues.length * 5));
 
       // Update transcript with processed content
-      const updatedTranscript = await storage.updateTranscript(id, {
+      const updatedTranscript = await (await getStorage()).updateTranscript(id, {
         processedContent: finalContent,
         validationResults,
         status: "ready"
@@ -224,7 +224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(updatedTranscript);
     } catch (error) {
       console.error("Error processing transcript:", error);
-      await storage.updateTranscript(id, { status: "error" });
+      await (await getStorage()).updateTranscript(id, { status: "error" });
       res.status(500).json({ message: "Failed to process transcript" });
     }
   });
