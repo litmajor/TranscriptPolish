@@ -14,10 +14,10 @@ interface ValidationPanelProps {
   issuesFixed?: number;
 }
 
-export default function ValidationPanel({ transcript }: ValidationPanelProps) {
-  const _s = $RefreshSig$();
+export default function ValidationPanel({ transcript, appliedRules = 0, issuesFixed = 0, processingSummary }: ValidationPanelProps) {
   const { toast } = useToast();
   const [isExpanded, setIsExpanded] = useState(false);
+  const [showProcessingDetails, setShowProcessingDetails] = useState(false);
 
   // Early return if no transcript
   if (!transcript) {
