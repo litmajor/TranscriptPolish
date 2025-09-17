@@ -1,6 +1,7 @@
 
 import express, { type Request, Response } from "express";
 import multer from "multer";
+import { createServer } from "http";
 import { getStorage } from "./storage";
 import { validateTranscript } from "../client/src/lib/validation-rules";
 import { processTranscriptContent, generateLVMPDHeader, generateLVMPDFooter, generateProcessingSummary } from "../client/src/lib/transcript-processor";
@@ -9,7 +10,6 @@ const router = express.Router();
 const upload = multer();
 
 export async function registerRoutes(app: express.Express) {
-  const { createServer } = await import("http");
   const server = createServer(app);
 
   // Get all transcripts

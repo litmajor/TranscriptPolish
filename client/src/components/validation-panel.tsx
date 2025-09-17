@@ -15,38 +15,29 @@ interface ValidationPanelProps {
 }
 
 export default function ValidationPanel({ transcript }: ValidationPanelProps) {
+  const _s = $RefreshSig$();
   const { toast } = useToast();
+  const [isExpanded, setIsExpanded] = useState(false);
 
+  // Early return if no transcript
   if (!transcript) {
     return (
-      <div className="p-4 text-muted-foreground">
-        No transcript selected
-      </div>
-    );
-  }
-
-  const validation = transcript.validationResults || { issues: [], score: 0 };
-  const [isExpanded, setIsExpanded] = useState(true);
-  const [showProcessingDetails, setShowProcessingDetails] = useState(false);
-
-  const validationResults = transcript?.validationResults;
-
-  if (!validationResults) {
-    return (
-      <Card>
+      <Card className="w-full">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Info className="h-5 w-5" />
-            Validation Results
+            <Target className="h-5 w-5" />
+            Validation Panel
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-muted-foreground">No validation results available</p>
+          <p className="text-muted-foreground">No transcript loaded</p>
         </CardContent>
       </Card>
     );
   }
 
+  // Get validation results from transcript or create default
+  const validationResults = transcript.validationResults || { issues: [], score: 0 };
   const { issues, score } = validationResults;
   const errorCount = issues.filter(issue => issue.type === "header" || issue.type === "footer").length;
   const warningCount = issues.filter(issue => !["header", "footer"].includes(issue.type)).length;
