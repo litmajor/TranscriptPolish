@@ -2,6 +2,7 @@ import { type Transcript, type InsertTranscript, type UpdateTranscript, transcri
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
 import { eq, desc } from "drizzle-orm";
+import 'dotenv/config';
 
 export interface IStorage {
   getTranscript(id: string): Promise<Transcript | undefined>;
@@ -12,7 +13,11 @@ export interface IStorage {
 }
 
 // Initialize database connection
-const sql = neon(process.env.DATABASE_URL!);
+console.log('DATABASE_URL:', process.env.DATABASE_URL);
+if (!process.env.DATABASE_URL) {
+  throw new Error('DATABASE_URL is not set. Please check your .env file and environment variable loading.');
+}
+const sql = neon(process.env.DATABASE_URL);
 const db = drizzle(sql);
 
 export class DatabaseStorage implements IStorage {
