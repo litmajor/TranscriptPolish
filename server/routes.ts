@@ -9,6 +9,9 @@ const router = express.Router();
 const upload = multer();
 
 export function registerRoutes(app: express.Express) {
+  const { createServer } = await import("http");
+  const server = createServer(app);
+
   // Get all transcripts
   app.get("/api/transcripts", async (req, res) => {
     try {
@@ -300,4 +303,6 @@ export function registerRoutes(app: express.Express) {
       res.status(500).json({ message: "Failed to delete transcript" });
     }
   });
+
+  return server;
 }
