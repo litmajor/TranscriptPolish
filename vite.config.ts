@@ -29,10 +29,11 @@ export default defineConfig({
     emptyOutDir: true,
   },
   // PostCSS plugins are configured in postcss.config.js
-  server: {
-    fs: {
-      strict: true,
-      deny: ["**/.*"],
-    },
-  },
+      server: {
+        port: 5173,
+        fs: {
+          strict: true,
+          deny: ["**/.*"],
+        },
+      },
 });
