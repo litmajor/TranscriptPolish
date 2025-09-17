@@ -52,7 +52,7 @@ class InMemoryStorage implements IStorage {
 
   async listTranscripts(): Promise<Transcript[]> {
     return Array.from(this.transcripts.values()).sort(
-      (a, b) => b.updatedAt.getTime() - a.updatedAt.getTime()
+      (a, b) => (b.updatedAt || new Date()).getTime() - (a.updatedAt || new Date()).getTime()
     );
   }
 }
@@ -105,7 +105,8 @@ async function initializeStorage(): Promise<IStorage> {
       
       return new DatabaseStorage();
     } catch (error) {
-      console.log('Failed to connect to PostgreSQL:', error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log('Failed to connect to PostgreSQL:', errorMessage);
       console.log('Falling back to in-memory storage for development');
       return new InMemoryStorage();
     }

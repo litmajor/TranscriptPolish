@@ -29,7 +29,7 @@ export async function setupVite(app: Express, server: Server) {
     middlewareMode: true,
     hmr: { server },
     host: "0.0.0.0",
-    allowedHosts: true,
+    allowedHosts: true as const,
     port: 5000, // Set backend server port to 5000
   };
 

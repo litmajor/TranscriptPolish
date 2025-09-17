@@ -8,14 +8,14 @@ import { processTranscriptContent, generateLVMPDHeader, generateLVMPDFooter, gen
 const router = express.Router();
 const upload = multer();
 
-export function registerRoutes(app: express.Express) {
+export async function registerRoutes(app: express.Express) {
   const { createServer } = await import("http");
   const server = createServer(app);
 
   // Get all transcripts
   app.get("/api/transcripts", async (req, res) => {
     try {
-      const transcripts = await (await getStorage()).getTranscripts();
+      const transcripts = await (await getStorage()).listTranscripts();
       res.json(transcripts);
     } catch (error) {
       console.error("Error fetching transcripts:", error);
@@ -156,6 +156,7 @@ export function registerRoutes(app: express.Express) {
           { label: "Q:", description: "Interviewer" },
           { label: "A:", description: "Interviewee" }
         ],
+        status: "draft",
         validationResults: originalValidation,
         versions: [originalVersion]
       });
@@ -199,7 +200,7 @@ export function registerRoutes(app: express.Express) {
       const finalContent = header + processedContent + footer;
 
       // Enhanced validation for processed content
-      const validationResults = validateTranscript(finalContent, transcript.speakers);
+      const validationResults = validateTranscript(finalContent, transcript.speakers || []);
 
       // Calculate improvement score based on applied rules
       let improvementScore = 0;
@@ -235,7 +236,7 @@ export function registerRoutes(app: express.Express) {
       validationResults.score = Math.min(100, Math.max(originalScore, baseScore + bonusScore));
 
       // Create version for processed content with detailed scoring
-      const existingVersions = transcript.versions || [];
+      const existingVersions = Array.isArray(transcript.versions) ? transcript.versions : [];
       const newProcessedVersion = {
         id: Math.random().toString(36).substring(7),
         timestamp: new Date(),
@@ -251,8 +252,7 @@ export function registerRoutes(app: express.Express) {
       const updatedTranscript = await (await getStorage()).updateTranscript(id, {
         processedContent: finalContent,
         validationResults,
-        status: "ready",
-        versions: updatedVersions
+        status: "ready"
       });
 
       // Generate processing summary

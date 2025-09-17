@@ -338,7 +338,7 @@ export default function TranscriptEditor() {
             </div>
 
             {/* Validation Panel */}
-            <ValidationPanel transcript={transcript} />
+            {transcript && <ValidationPanel transcript={transcript} />}
           </div>
         </main>
       </div>
