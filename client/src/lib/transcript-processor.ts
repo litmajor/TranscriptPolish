@@ -1,8 +1,10 @@
+
 export interface ProcessingRule {
   name: string;
   pattern: RegExp;
   replacement: string | ((match: string, ...args: any[]) => string);
   description: string;
+  category: "discourse" | "numbers" | "dates" | "time" | "corrections" | "formatting" | "punctuation";
 }
 
 export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
@@ -11,22 +13,32 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     name: "discourse_markers",
     pattern: /\bMh\b/g,
     replacement: "Mh-Mh",
-    description: "Standardize discourse markers"
+    description: "Standardize discourse markers",
+    category: "discourse"
   },
   {
     name: "mmhm_standardization",
-    pattern: /\b(mm-?hm|mhm)\b/gi,
+    pattern: /\b(mm-?hm|mhm|mmm|hmm)\b/gi,
     replacement: "Mmhm",
-    description: "Standardize mmhm responses"
+    description: "Standardize mmhm responses",
+    category: "discourse"
   },
   {
     name: "uh_standardization",
-    pattern: /\b(uh|uhh)\b/gi,
+    pattern: /\b(uh|uhh|um|umm)\b/gi,
     replacement: "Uh",
-    description: "Standardize uh fillers"
+    description: "Standardize uh fillers",
+    category: "discourse"
+  },
+  {
+    name: "yeah_standardization",
+    pattern: /\b(yeah|yah|ya)\b/gi,
+    replacement: "Yeah",
+    description: "Standardize yeah responses",
+    category: "discourse"
   },
 
-  // Number formatting
+  // Number formatting - spell out 1-10
   {
     name: "spell_numbers_1_10",
     pattern: /\b(1|2|3|4|5|6|7|8|9|10)\b/g,
@@ -34,7 +46,8 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
       const numbers = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten"];
       return numbers[parseInt(match) - 1];
     },
-    description: "Spell out numbers 1-10"
+    description: "Spell out numbers 1-10",
+    category: "numbers"
   },
 
   // Date formatting - remove ordinal suffixes
@@ -42,7 +55,8 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     name: "remove_date_ordinals",
     pattern: /\b(\d+)(st|nd|rd|th)\b/g,
     replacement: "$1",
-    description: "Remove ordinal suffixes from dates"
+    description: "Remove ordinal suffixes from dates",
+    category: "dates"
   },
 
   // Time formatting
@@ -50,47 +64,157 @@ export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
     name: "time_format",
     pattern: /\b(\d{1,2}):(\d{2})\s*(a\.?m\.?|p\.?m\.?)\b/gi,
     replacement: "$1:$2 $3",
-    description: "Standardize time format"
+    description: "Standardize time format",
+    category: "time"
   },
 
-  // Common transcription errors
+  // Common transcription errors and corrections
   {
     name: "ejaculation_correction",
     pattern: /\bejaculation\b/gi,
     replacement: "ejaculate",
-    description: "Correct common mishearing"
+    description: "Correct common mishearing",
+    category: "corrections"
+  },
+  {
+    name: "pacific_specific_correction",
+    pattern: /\bpacific\b/gi,
+    replacement: "specific",
+    description: "Correct pacific/specific confusion",
+    category: "corrections"
+  },
+  {
+    name: "calvary_cavalry_correction",
+    pattern: /\bcalvary\b/gi,
+    replacement: "cavalry",
+    description: "Correct calvary/cavalry confusion",
+    category: "corrections"
+  },
+  {
+    name: "could_of_correction",
+    pattern: /\bcould of\b/gi,
+    replacement: "could have",
+    description: "Correct could of/could have",
+    category: "corrections"
+  },
+  {
+    name: "should_of_correction",
+    pattern: /\bshould of\b/gi,
+    replacement: "should have",
+    description: "Correct should of/should have",
+    category: "corrections"
+  },
+  {
+    name: "would_of_correction",
+    pattern: /\bwould of\b/gi,
+    replacement: "would have",
+    description: "Correct would of/would have",
+    category: "corrections"
   },
 
-  // Clean up nonsense phrases (example)
+  // Clean up nonsense phrases
   {
-    name: "clean_nonsense",
+    name: "clean_nonsense_doors",
     pattern: /\bbump hole there has doors\b/gi,
     replacement: "bunch of doors",
-    description: "Fix garbled phrases"
+    description: "Fix garbled phrases",
+    category: "corrections"
+  },
+  {
+    name: "clean_nonsense_general",
+    pattern: /\b(illegible|inaudible|unclear)\b/gi,
+    replacement: "[inaudible]",
+    description: "Standardize unclear audio markers",
+    category: "formatting"
   },
 
-  // Speaker interruptions
+  // Speaker interruptions and formatting
   {
     name: "interruption_markers",
     pattern: /\b(but|and|so|well)\s*-{2,}\s*/gi,
     replacement: "$1—",
-    description: "Standardize interruption markers"
+    description: "Standardize interruption markers",
+    category: "formatting"
+  },
+  {
+    name: "multiple_dashes",
+    pattern: /-{2,}/g,
+    replacement: "—",
+    description: "Replace multiple dashes with em dash",
+    category: "formatting"
+  },
+
+  // Punctuation corrections
+  {
+    name: "comma_spacing",
+    pattern: /\s*,\s*/g,
+    replacement: ", ",
+    description: "Standardize comma spacing",
+    category: "punctuation"
+  },
+  {
+    name: "period_spacing",
+    pattern: /\s*\.\s*/g,
+    replacement: ". ",
+    description: "Standardize period spacing",
+    category: "punctuation"
+  },
+  {
+    name: "question_spacing",
+    pattern: /\s*\?\s*/g,
+    replacement: "? ",
+    description: "Standardize question mark spacing",
+    category: "punctuation"
+  },
+
+  // Contractions standardization
+  {
+    name: "cant_contraction",
+    pattern: /\bcan't\b/gi,
+    replacement: "can't",
+    description: "Standardize can't contraction",
+    category: "formatting"
+  },
+  {
+    name: "wont_contraction",
+    pattern: /\bwon't\b/gi,
+    replacement: "won't",
+    description: "Standardize won't contraction",
+    category: "formatting"
+  },
+  {
+    name: "dont_contraction",
+    pattern: /\bdon't\b/gi,
+    replacement: "don't",
+    description: "Standardize don't contraction",
+    category: "formatting"
   }
 ];
 
-export function processTranscriptContent(content: string): string {
+export function processTranscriptContent(content: string): {
+  processedContent: string;
+  appliedRules: Array<{ rule: ProcessingRule; matches: number }>;
+} {
   let processedContent = content;
+  const appliedRules: Array<{ rule: ProcessingRule; matches: number }> = [];
 
-  // Apply each processing rule
+  // Apply each processing rule and track changes
   for (const rule of LVMPD_PROCESSING_RULES) {
-    if (typeof rule.replacement === "string") {
-      processedContent = processedContent.replace(rule.pattern, rule.replacement);
-    } else {
-      processedContent = processedContent.replace(rule.pattern, rule.replacement);
+    const beforeLength = processedContent.length;
+    const matches = (processedContent.match(rule.pattern) || []).length;
+    
+    if (matches > 0) {
+      if (typeof rule.replacement === "string") {
+        processedContent = processedContent.replace(rule.pattern, rule.replacement);
+      } else {
+        processedContent = processedContent.replace(rule.pattern, rule.replacement);
+      }
+      
+      appliedRules.push({ rule, matches });
     }
   }
 
-  return processedContent;
+  return { processedContent, appliedRules };
 }
 
 export function generateLVMPDHeader(detectiveInfo: any, interviewInfo: any): string {
@@ -121,4 +245,28 @@ export function generateLVMPDFooter(interviewInfo: any): string {
   const time24 = interviewInfo.time.replace(':', '');
 
   return `\n\nTHIS STATEMENT WAS COMPLETED AT ${interviewInfo.location.toUpperCase()} ON THE ${day} DAY OF ${month}, ${year} AT ${time24} HOURS.`;
+}
+
+export function generateProcessingSummary(appliedRules: Array<{ rule: ProcessingRule; matches: number }>): string {
+  if (appliedRules.length === 0) {
+    return "No processing rules were applied.";
+  }
+
+  const categories = appliedRules.reduce((acc, { rule, matches }) => {
+    if (!acc[rule.category]) {
+      acc[rule.category] = [];
+    }
+    acc[rule.category].push(`${rule.description} (${matches} changes)`);
+    return acc;
+  }, {} as Record<string, string[]>);
+
+  let summary = "Applied processing rules:\n";
+  Object.entries(categories).forEach(([category, rules]) => {
+    summary += `\n${category.toUpperCase()}:\n`;
+    rules.forEach(rule => {
+      summary += `  • ${rule}\n`;
+    });
+  });
+
+  return summary;
 }
