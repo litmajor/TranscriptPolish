@@ -1,5 +1,7 @@
-import { type Transcript, type InsertTranscript, type UpdateTranscript } from "@shared/schema";
-import { randomUUID } from "crypto";
+import { type Transcript, type InsertTranscript, type UpdateTranscript, transcripts } from "@shared/schema";
+import { drizzle } from "drizzle-orm/neon-http";
+import { neon } from "@neondatabase/serverless";
+import { eq, desc } from "drizzle-orm";
 
 export interface IStorage {
   getTranscript(id: string): Promise<Transcript | undefined>;
@@ -9,70 +11,40 @@ export interface IStorage {
   listTranscripts(): Promise<Transcript[]>;
 }
 
-export class MemStorage implements IStorage {
-  private transcripts: Map<string, Transcript>;
+// Initialize database connection
+const sql = neon(process.env.DATABASE_URL!);
+const db = drizzle(sql);
 
-  constructor() {
-    this.transcripts = new Map();
-  }
-
+export class DatabaseStorage implements IStorage {
   async getTranscript(id: string): Promise<Transcript | undefined> {
-    return this.transcripts.get(id);
+    const result = await db.select().from(transcripts).where(eq(transcripts.id, id));
+    return result[0] || undefined;
   }
 
   async createTranscript(insertTranscript: InsertTranscript): Promise<Transcript> {
-    const id = randomUUID();
-    const now = new Date();
-    const transcript: Transcript = {
-      id,
-      filename: insertTranscript.filename,
-      originalContent: insertTranscript.originalContent,
-      processedContent: null,
-      detectiveInfo: (insertTranscript.detectiveInfo as { name?: string; badge?: string; section?: string; } | null) || null,
-      interviewInfo: (insertTranscript.interviewInfo as { date?: string; time?: string; location?: string; } | null) || null,
-      speakerType: insertTranscript.speakerType || "standard",
-      speakers: (insertTranscript.speakers as Array<{ label: string; description: string }>) || [],
-      validationResults: null,
-      status: "draft",
-      createdAt: now,
-      updatedAt: now,
-    };
-    this.transcripts.set(id, transcript);
-    return transcript;
+    const result = await db.insert(transcripts).values(insertTranscript as any).returning();
+    return result[0];
   }
 
   async updateTranscript(id: string, updates: UpdateTranscript): Promise<Transcript | undefined> {
-    const existing = this.transcripts.get(id);
-    if (!existing) {
-      return undefined;
-    }
-
-    const updated: Transcript = {
-      ...existing,
-      processedContent: updates.processedContent !== undefined ? updates.processedContent : existing.processedContent,
-      detectiveInfo: updates.detectiveInfo !== undefined ? (updates.detectiveInfo as { name?: string; badge?: string; section?: string; } | null) : existing.detectiveInfo,
-      interviewInfo: updates.interviewInfo !== undefined ? (updates.interviewInfo as { date?: string; time?: string; location?: string; } | null) : existing.interviewInfo,
-      speakerType: updates.speakerType !== undefined ? updates.speakerType : existing.speakerType,
-      speakers: updates.speakers !== undefined ? (updates.speakers as Array<{ label: string; description: string }> | null) : existing.speakers,
-      validationResults: updates.validationResults !== undefined ? (updates.validationResults as { issues: Array<{ line: number; type: string; message: string; suggestion?: string }>; score: number; } | null) : existing.validationResults,
-      status: updates.status !== undefined ? updates.status : existing.status,
-      updatedAt: new Date(),
-    };
-    this.transcripts.set(id, updated);
-    return updated;
+    const result = await db.update(transcripts)
+      .set({
+        ...updates,
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(transcripts.id, id))
+      .returning();
+    return result[0] || undefined;
   }
 
   async deleteTranscript(id: string): Promise<boolean> {
-    return this.transcripts.delete(id);
+    const result = await db.delete(transcripts).where(eq(transcripts.id, id)).returning();
+    return result.length > 0;
   }
 
   async listTranscripts(): Promise<Transcript[]> {
-    return Array.from(this.transcripts.values()).sort((a, b) => {
-      const aTime = a.updatedAt ? a.updatedAt.getTime() : 0;
-      const bTime = b.updatedAt ? b.updatedAt.getTime() : 0;
-      return bTime - aTime;
-    });
+    return await db.select().from(transcripts).orderBy(desc(transcripts.updatedAt));
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
