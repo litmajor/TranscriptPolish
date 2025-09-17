@@ -10,40 +10,14 @@ export interface ProcessingRule {
 
 export const LVMPD_PROCESSING_RULES: ProcessingRule[] = [
   // Structure and formatting rules (highest priority)
+  // Structure and formatting rules (highest priority)
   {
-    name: "speaker_line_spacing",
-    pattern: /^([A-Z]:.*?)$/gm,
-    replacement: (match) => {
-      // Add spacing before each speaker line except the first
-      return `\n${match}`;
-    },
-    description: "Add spacing between speaker sections",
+    name: "clean_multiple_newlines_pre",
+    pattern: /\n{3,}/g,
+    replacement: "\n\n",
+    description: "Remove excessive line breaks before processing",
     category: "structure",
     priority: 1
-  },
-  {
-    name: "hanging_indent_formatting",
-    pattern: /^([A-Z]:)\s*(.*?)$/gm,
-    replacement: (match, speaker, content) => {
-      if (!content.trim()) return match;
-      
-      // Split content into sentences and apply hanging indent
-      const sentences = content.trim().split(/(?<=[.!?])\s+/);
-      if (sentences.length <= 1) {
-        return `${speaker} ${content.trim()}`;
-      }
-      
-      let formatted = `${speaker} ${sentences[0]}`;
-      for (let i = 1; i < sentences.length; i++) {
-        if (sentences[i].trim()) {
-          formatted += `\n     ${sentences[i]}`;
-        }
-      }
-      return formatted;
-    },
-    description: "Apply hanging indent formatting to speaker content",
-    category: "structure",
-    priority: 2
   },
 
   // Discourse markers standardization
@@ -309,27 +283,56 @@ export function processTranscriptContent(content: string): {
 function applyLVMPDStructure(content: string): string {
   const lines = content.split('\n');
   const processedLines: string[] = [];
+  let previousSpeaker = '';
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmedLine = line.trim();
     
-    // Skip empty lines in processing, we'll add them back strategically
+    // Skip empty lines
     if (!trimmedLine) {
       continue;
     }
     
-    // Check if this is a speaker line
-    const isSpeakerLine = /^[A-Z]:/.test(trimmedLine);
+    // Check if this is a speaker line (Q:, A:, etc.)
+    const speakerMatch = trimmedLine.match(/^([A-Z]):(.*)$/);
     
-    if (isSpeakerLine) {
-      // Add spacing before speaker lines (except the very first one)
-      if (processedLines.length > 0) {
-        processedLines.push(''); // Add blank line before new speaker
+    if (speakerMatch) {
+      const [, speaker, content] = speakerMatch;
+      const speakerLabel = `${speaker}:`;
+      
+      // Add blank line before new speaker (except first speaker)
+      if (processedLines.length > 0 && speaker !== previousSpeaker) {
+        processedLines.push('');
+      }
+      
+      // Apply hanging indent to content
+      if (content.trim()) {
+        const sentences = content.trim().split(/(?<=[.!?])\s+/);
+        
+        // First sentence on same line as speaker
+        processedLines.push(`${speakerLabel} ${sentences[0]}`);
+        
+        // Additional sentences with hanging indent
+        for (let j = 1; j < sentences.length; j++) {
+          if (sentences[j].trim()) {
+            processedLines.push(`     ${sentences[j]}`);
+          }
+        }
+      } else {
+        processedLines.push(speakerLabel);
+      }
+      
+      previousSpeaker = speaker;
+    } else {
+      // Non-speaker line - could be continuation or other content
+      if (previousSpeaker && !trimmedLine.startsWith('     ')) {
+        // Apply hanging indent to continuation lines
+        processedLines.push(`     ${trimmedLine}`);
+      } else {
+        processedLines.push(trimmedLine);
       }
     }
-    
-    processedLines.push(line);
   }
   
   return processedLines.join('\n');

@@ -38,6 +38,44 @@ export async function registerRoutes(app: express.Express) {
     }
   });
 
+  // Audio transcription endpoint
+  app.post("/api/transcripts/transcribe", upload.single("audio"), async (req: Request, res: Response) => {
+    if (!req.file) {
+      return res.status(400).json({ message: "No audio file uploaded" });
+    }
+
+    try {
+      const { TranscriptionService } = await import("./transcription-service");
+      const transcriptionService = new TranscriptionService();
+      
+      const result = await transcriptionService.transcribeAudio(req.file.buffer, req.file.originalname);
+      
+      // Format transcription with speakers
+      let formattedContent = '';
+      if (result.speakers && result.speakers.length > 0) {
+        result.speakers.forEach((segment) => {
+          formattedContent += `${segment.speaker === 'Speaker 1' ? 'Q' : 'A'}: ${segment.text}\n`;
+        });
+      } else {
+        // Fallback: simple Q/A format
+        const sentences = result.transcript.split(/[.!?]+/).filter(s => s.trim());
+        sentences.forEach((sentence, index) => {
+          const speaker = index % 2 === 0 ? 'Q' : 'A';
+          formattedContent += `${speaker}: ${sentence.trim()}.\n`;
+        });
+      }
+
+      res.json({
+        transcript: formattedContent,
+        confidence: result.confidence,
+        speakers: result.speakers
+      });
+    } catch (error) {
+      console.error("Transcription error:", error);
+      res.status(500).json({ message: "Failed to transcribe audio" });
+    }
+  });
+
   // Upload transcript file
   app.post("/api/transcripts/upload", upload.single("file"), async (req: Request, res: Response) => {
     if (!req.file) {
@@ -183,6 +221,51 @@ export async function registerRoutes(app: express.Express) {
 
       // Apply comprehensive LVMPD processing rules
       const { processedContent, appliedRules } = processTranscriptContent(transcript.originalContent);
+      
+      // Enforce LVMPD structure requirements
+      const lines = processedContent.split('\n');
+      let structureValidated = true;
+      let structureIssues: string[] = [];
+      
+      // Check for proper speaker formatting
+      const speakerLines = lines.filter(line => /^[A-Z]:/.test(line.trim()));
+      if (speakerLines.length === 0) {
+        structureIssues.push("No proper speaker formatting detected");
+        structureValidated = false;
+      }
+      
+      // Check for hanging indent compliance
+      let hasHangingIndent = false;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i].startsWith('     ')) {
+          hasHangingIndent = true;
+          break;
+        }
+      }
+      
+      if (speakerLines.length > 2 && !hasHangingIndent) {
+        structureIssues.push("Missing hanging indent formatting");
+        structureValidated = false;
+      }
+      
+      // Check for proper spacing between speakers
+      let hasProperSpacing = false;
+      for (let i = 1; i < lines.length; i++) {
+        if (/^[A-Z]:/.test(lines[i]) && lines[i-1].trim() === '') {
+          hasProperSpacing = true;
+          break;
+        }
+      }
+      
+      if (speakerLines.length > 1 && !hasProperSpacing) {
+        structureIssues.push("Missing proper spacing between speakers");
+        structureValidated = false;
+      }
+      
+      // If structure validation fails, report it
+      if (!structureValidated) {
+        console.warn("LVMPD structure validation failed:", structureIssues);
+      }
 
       // Generate LVMPD header
       const { detectiveInfo, interviewInfo } = transcript;

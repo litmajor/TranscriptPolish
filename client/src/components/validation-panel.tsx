@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AlertTriangle, CheckCircle, Info, ChevronDown, ChevronRight, Zap, Target } from "lucide-react";
 import type { Transcript } from "@shared/schema";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ValidationPanelProps {
   transcript: Transcript;
@@ -14,17 +14,23 @@ interface ValidationPanelProps {
   issuesFixed?: number;
 }
 
-export default function ValidationPanel({ 
-  transcript, 
-  processingSummary, 
-  appliedRules = 0, 
-  issuesFixed = 0 
-}: ValidationPanelProps) {
+export default function ValidationPanel({ transcript }: ValidationPanelProps) {
+  const { toast } = useToast();
+
+  if (!transcript) {
+    return (
+      <div className="p-4 text-muted-foreground">
+        No transcript selected
+      </div>
+    );
+  }
+
+  const validation = transcript.validationResults || { issues: [], score: 0 };
   const [isExpanded, setIsExpanded] = useState(true);
   const [showProcessingDetails, setShowProcessingDetails] = useState(false);
 
   const validationResults = transcript?.validationResults;
-  
+
   if (!validationResults) {
     return (
       <Card>

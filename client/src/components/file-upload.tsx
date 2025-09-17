@@ -16,20 +16,60 @@ export default function FileUpload({ onFileUploaded }: FileUploadProps) {
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       const formData = new FormData();
-      formData.append("file", file);
+      const isAudioFile = file.type.startsWith('audio/');
 
-      const response = await fetch("/api/transcripts/upload", {
-        method: "POST",
-        body: formData,
-        credentials: "include",
-      });
+      if (isAudioFile) {
+        formData.append("audio", file);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Upload failed");
+        // First transcribe the audio
+        const transcribeResponse = await fetch("/api/transcripts/transcribe", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+
+        if (!transcribeResponse.ok) {
+          const error = await transcribeResponse.json();
+          throw new Error(error.message || "Transcription failed");
+        }
+
+        const transcriptionResult = await transcribeResponse.json();
+
+        // Then create transcript from transcribed content
+        const textBlob = new Blob([transcriptionResult.transcript], { type: 'text/plain' });
+        const textFile = new File([textBlob], file.name.replace(/\.[^/.]+$/, '') + '_transcribed.txt', { type: 'text/plain' });
+
+        const uploadFormData = new FormData();
+        uploadFormData.append("file", textFile);
+
+        const response = await fetch("/api/transcripts/upload", {
+          method: "POST",
+          body: uploadFormData,
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Upload failed");
+        }
+
+        return response.json();
+      } else {
+        formData.append("file", file);
+
+        const response = await fetch("/api/transcripts/upload", {
+          method: "POST",
+          body: formData,
+          credentials: "include",
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || "Upload failed");
+        }
+
+        return response.json();
       }
-
-      return response.json();
     },
     onSuccess: (transcript: Transcript) => {
       setIsUploading(false);
@@ -56,11 +96,10 @@ export default function FileUpload({ onFileUploaded }: FileUploadProps) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: {
-      "text/plain": [".txt"],
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
-      "application/pdf": [".pdf"],
+      "text/*": [".txt", ".rtf"],
+      "audio/*": [".mp3", ".wav", ".m4a", ".ogg"],
     },
-    maxFiles: 1,
+    multiple: false,
   });
 
   return (
@@ -76,10 +115,10 @@ export default function FileUpload({ onFileUploaded }: FileUploadProps) {
       <input {...getInputProps()} data-testid="file-upload-input" />
       <CloudUpload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
       <p className="text-sm font-medium text-card-foreground mb-1">
-        {isUploading ? "Uploading..." : "Drop transcript files here"}
+        {isUploading ? "Uploading..." : "Drop transcript or audio files here"}
       </p>
       <p className="text-xs text-muted-foreground mb-3">or click to browse</p>
-      <p className="text-xs text-muted-foreground">Supports: .txt, .docx, .pdf</p>
+      <p className="text-xs text-muted-foreground">Supports: .txt, .rtf, .mp3, .wav, .m4a, .ogg</p>
     </div>
   );
 }
