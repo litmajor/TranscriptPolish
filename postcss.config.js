@@ -1,1 +1,7 @@
-// File removed. Use postcss.config.cjs for PostCSS configuration.
+
+module.exports = {
+  plugins: {
+    tailwindcss: {},
+    autoprefixer: {},
+  },
+}
