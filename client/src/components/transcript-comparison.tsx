@@ -70,6 +70,29 @@ export default function TranscriptComparison({ transcript }: TranscriptCompariso
                   {stats.wordDiff > 0 ? "+" : ""}{stats.wordDiff} words
                 </Badge>
               )}
+              {/* Score badges */}
+              {transcript.versions && transcript.versions.length > 0 && (
+                <>
+                  {(() => {
+                    const originalVersion = transcript.versions.find(v => v.type === "original");
+                    const processedVersion = transcript.versions.find(v => v.type === "processed");
+                    return (
+                      <>
+                        {originalVersion?.score !== undefined && (
+                          <Badge variant="secondary">
+                            Original Score: {originalVersion.score}/100
+                          </Badge>
+                        )}
+                        {processedVersion?.score !== undefined && (
+                          <Badge variant={processedVersion.score > (originalVersion?.score || 0) ? "default" : "secondary"}>
+                            Processed Score: {processedVersion.score}/100
+                          </Badge>
+                        )}
+                      </>
+                    );
+                  })()}
+                </>
+              )}
             </div>
           </div>
           <div className="flex gap-2">

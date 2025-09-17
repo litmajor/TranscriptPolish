@@ -181,9 +181,9 @@ export default function TranscriptEditor() {
         </aside>
 
         {/* Main Content */}
-        <main className="flex-1 flex flex-col">
+        <main className="flex-1 flex flex-col min-h-0">
           {/* Toolbar */}
-          <div className="bg-card border-b border-border px-6 py-4">
+          <div className="bg-card border-b border-border px-6 py-4 flex-shrink-0">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <Button
@@ -234,6 +234,29 @@ export default function TranscriptEditor() {
                 </Button>
               </div>
               <div className="flex items-center space-x-4">
+                {/* Score Display */}
+                {transcript?.versions && transcript.versions.length > 0 && (
+                  <div className="flex gap-2">
+                    {(() => {
+                      const originalVersion = transcript.versions.find(v => v.type === "original");
+                      const processedVersion = transcript.versions.find(v => v.type === "processed");
+                      return (
+                        <>
+                          {originalVersion?.score !== undefined && (
+                            <Badge variant="secondary">
+                              Original: {originalVersion.score}/100
+                            </Badge>
+                          )}
+                          {processedVersion?.score !== undefined && (
+                            <Badge variant={processedVersion.score > (originalVersion?.score || 0) ? "default" : "secondary"}>
+                              Processed: {processedVersion.score}/100
+                            </Badge>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                )}
                 <span className="text-sm text-muted-foreground">Status:</span>
                 {transcript && getStatusBadge(transcript.status)}
                 <Button
@@ -250,10 +273,10 @@ export default function TranscriptEditor() {
           </div>
 
           {/* Editor Content */}
-          <div className="flex-1 flex">
-            <div className="flex-1 p-6">
+          <div className="flex-1 flex min-h-0">
+            <div className="flex-1 p-6 flex flex-col min-h-0">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-4">
+                <TabsList className="grid w-full grid-cols-4 flex-shrink-0">
                   <TabsTrigger value="original">Original Transcript</TabsTrigger>
                   <TabsTrigger value="processed">Processed Transcript</TabsTrigger>
                   <TabsTrigger value="comparison">Compare</TabsTrigger>

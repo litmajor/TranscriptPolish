@@ -233,7 +233,7 @@ export default function TranscriptEditorComponent({ transcript, contentType, onC
       )}
 
       {/* Editor */}
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden">
         <Textarea
           ref={textareaRef}
           value={content}
@@ -247,6 +247,7 @@ export default function TranscriptEditorComponent({ transcript, contentType, onC
           style={{
             fontFamily: "'Source Code Pro', Consolas, monospace",
             lineHeight: "1.6",
+            minHeight: "100%",
           }}
           readOnly={contentType === "processed"}
           data-testid={`editor-${contentType}`}

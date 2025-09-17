@@ -120,6 +120,73 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up uploaded file
       await fs.promises.unlink(filePath);
 
+      // Score original content
+      const originalValidation = {
+        issues: [] as Array<{ line: number; type: string; message: string; suggestion?: string }>,
+        score: 0
+      };
+
+      const lines = content.split('\n');
+      lines.forEach((line, index) => {
+        // Check for discourse marker issues
+        if (line.includes('Mh') && !line.includes('Mh-Mh')) {
+          originalValidation.issues.push({
+            line: index + 1,
+            type: "discourse_marker",
+            message: "Discourse marker needs standardization",
+            suggestion: line.replace(/\bMh\b/g, "Mh-Mh")
+          });
+        }
+        // Check for numbers that should be spelled out
+        if (line.match(/\b[1-9]|10\b/)) {
+          originalValidation.issues.push({
+            line: index + 1,
+            type: "number_format",
+            message: "Numbers 1-10 should be spelled out"
+          });
+        }
+        // Check for missing punctuation
+        if (line.match(/^[A-Z0-9]+:/) && line.length > 10 && !line.match(/[.!?]$/)) {
+          originalValidation.issues.push({
+            line: index + 1,
+            type: "punctuation",
+            message: "Statement should end with punctuation"
+          });
+        }
+      });
+
+      // Check for LVMPD formatting
+      const hasHeader = content.includes("The following is the transcription");
+      const hasFooter = content.includes("THIS STATEMENT WAS COMPLETED");
+      
+      if (!hasHeader) {
+        originalValidation.issues.push({
+          line: 1,
+          type: "header",
+          message: "Missing LVMPD header"
+        });
+      }
+      if (!hasFooter) {
+        originalValidation.issues.push({
+          line: lines.length,
+          type: "footer",
+          message: "Missing LVMPD footer"
+        });
+      }
+
+      // Calculate original score
+      originalValidation.score = Math.max(0, 100 - (originalValidation.issues.length * 8));
+
+      // Create initial version for original content
+      const originalVersion = {
+        id: Math.random().toString(36).substring(7),
+        timestamp: new Date(),
+        content: content,
+        type: "original" as const,
+        changes: "Initial upload",
+        score: originalValidation.score
+      };
+
       // Create transcript record
       const transcript = await (await getStorage()).createTranscript({
         filename: originalname,
@@ -131,6 +198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           { label: "Q:", description: "Interviewer" },
           { label: "A:", description: "Interviewee" }
         ],
+        validationResults: originalValidation,
+        versions: [originalVersion]
       });
 
       res.status(201).json(transcript);
@@ -193,15 +262,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const finalContent = header + processedContent + footer;
 
-      // Basic validation
+      // Enhanced validation for processed content
       const validationResults = {
         issues: [] as Array<{ line: number; type: string; message: string; suggestion?: string }>,
         score: 100
       };
 
-      // Check for common issues
-      const lines = finalContent.split('\n');
-      lines.forEach((line, index) => {
+      const processedLines = finalContent.split('\n');
+      const originalLines = transcript.originalContent.split('\n');
+      
+      let improvementScore = 0;
+      let issueCount = 0;
+
+      // Check for remaining issues
+      processedLines.forEach((line, index) => {
         if (line.includes('Mh') && !line.includes('Mh-Mh')) {
           validationResults.issues.push({
             line: index + 1,
@@ -209,10 +283,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
             message: "Discourse marker should be standardized",
             suggestion: line.replace(/\bMh\b/g, "Mh-Mh")
           });
+          issueCount++;
+        }
+        
+        if (line.match(/\b[1-9]|10\b/) && !line.match(/\b(one|two|three|four|five|six|seven|eight|nine|ten)\b/)) {
+          validationResults.issues.push({
+            line: index + 1,
+            type: "number_format",
+            message: "Numbers should be spelled out"
+          });
+          issueCount++;
         }
       });
 
-      validationResults.score = Math.max(0, 100 - (validationResults.issues.length * 5));
+      // Calculate improvement metrics
+      const originalIssues = transcript.validationResults?.issues?.length || 0;
+      const processedIssues = validationResults.issues.length;
+      const issuesFixed = Math.max(0, originalIssues - processedIssues);
+
+      // Check for LVMPD formatting improvements
+      const hasProperHeader = finalContent.includes("The following is the transcription of a tape-recorded interview");
+      const hasProperFooter = finalContent.includes("THIS STATEMENT WAS COMPLETED AT");
+      
+      if (hasProperHeader) improvementScore += 15;
+      if (hasProperFooter) improvementScore += 15;
+
+      // Reward content improvements
+      const originalWords = transcript.originalContent.split(/\s+/).length;
+      const processedWords = finalContent.split(/\s+/).length;
+      const contentImprovement = Math.abs(processedWords - originalWords) / originalWords;
+
+      // Calculate final score
+      let baseScore = 100 - (processedIssues * 5);
+      let bonusScore = improvementScore + (issuesFixed * 10) + (contentImprovement * 20);
+      
+      validationResults.score = Math.min(100, Math.max(0, baseScore + bonusScore));
 
       // Create version for processed content with scoring
       const existingVersions = transcript.versions || [];
