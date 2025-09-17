@@ -5,6 +5,7 @@ import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import FileUpload from "@/components/file-upload";
 import TranscriptEditorComponent from "@/components/transcript-editor";
+import TranscriptComparison from "@/components/transcript-comparison";
 import ValidationPanel from "@/components/validation-panel";
 import LVMPDTemplateForm from "@/components/lvmpd-template-form";
 import SpeakerSystem from "@/components/speaker-system";
@@ -197,7 +198,37 @@ export default function TranscriptEditor() {
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Validate
                 </Button>
-                <Button variant="outline" data-testid="button-clear">
+                <Button 
+                  variant="outline" 
+                  onClick={() => {
+                    if (transcript) {
+                      // Clear both original and processed content
+                      fetch(`/api/transcripts/${transcript.id}`, {
+                        method: "PATCH",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ 
+                          originalContent: "", 
+                          processedContent: "",
+                          versions: [...(transcript.versions || []), {
+                            id: Math.random().toString(36).substring(7),
+                            timestamp: new Date(),
+                            content: "",
+                            type: "original",
+                            changes: "Content cleared"
+                          }]
+                        }),
+                        credentials: "include",
+                      }).then(() => {
+                        queryClient.invalidateQueries({ queryKey: ["/api/transcripts"] });
+                        toast({
+                          title: "Success",
+                          description: "Transcript cleared successfully",
+                        });
+                      });
+                    }
+                  }}
+                  data-testid="button-clear"
+                >
                   <Eraser className="h-4 w-4 mr-2" />
                   Clear
                 </Button>
@@ -222,9 +253,10 @@ export default function TranscriptEditor() {
           <div className="flex-1 flex">
             <div className="flex-1 p-6">
               <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-4">
                   <TabsTrigger value="original">Original Transcript</TabsTrigger>
                   <TabsTrigger value="processed">Processed Transcript</TabsTrigger>
+                  <TabsTrigger value="comparison">Compare</TabsTrigger>
                   <TabsTrigger value="validation">Validation Report</TabsTrigger>
                 </TabsList>
                 
@@ -240,6 +272,16 @@ export default function TranscriptEditor() {
                     transcript={transcript} 
                     contentType="processed"
                   />
+                </TabsContent>
+                
+                <TabsContent value="comparison" className="flex-1 mt-4">
+                  {transcript ? (
+                    <TranscriptComparison transcript={transcript} />
+                  ) : (
+                    <div className="h-full border border-border rounded-lg bg-background flex items-center justify-center">
+                      <p className="text-muted-foreground">Upload a transcript to view comparison</p>
+                    </div>
+                  )}
                 </TabsContent>
                 
                 <TabsContent value="validation" className="flex-1 mt-4">

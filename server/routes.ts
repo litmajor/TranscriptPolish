@@ -214,11 +214,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       validationResults.score = Math.max(0, 100 - (validationResults.issues.length * 5));
 
-      // Update transcript with processed content
+      // Create version for processed content with scoring
+      const existingVersions = transcript.versions || [];
+      const newProcessedVersion = {
+        id: Math.random().toString(36).substring(7),
+        timestamp: new Date(),
+        content: finalContent,
+        type: "processed" as const,
+        changes: "LVMPD processing applied",
+        score: validationResults.score
+      };
+
+      // Update transcript with processed content and version
       const updatedTranscript = await (await getStorage()).updateTranscript(id, {
         processedContent: finalContent,
         validationResults,
-        status: "ready"
+        status: "ready",
+        versions: [...existingVersions, newProcessedVersion]
       });
 
       res.json(updatedTranscript);

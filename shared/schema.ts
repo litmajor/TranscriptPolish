@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, json } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, json, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -30,17 +30,41 @@ export const transcripts = pgTable("transcripts", {
     score: number;
   }>(),
   status: text("status").notNull().default("draft"), // "draft", "processing", "ready", "error"
+  versions: jsonb("versions").default([]).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
-export const insertTranscriptSchema = createInsertSchema(transcripts).pick({
-  filename: true,
-  originalContent: true,
-  detectiveInfo: true,
-  interviewInfo: true,
-  speakerType: true,
-  speakers: true,
+export const insertTranscriptSchema = z.object({
+  id: z.string().optional(),
+  filename: z.string(),
+  originalContent: z.string(),
+  processedContent: z.string().optional(),
+  detectiveInfo: z.record(z.any()).default({}),
+  interviewInfo: z.record(z.any()).default({}),
+  speakerType: z.enum(["standard", "numbered"]).default("standard"),
+  speakers: z.array(z.object({
+    label: z.string(),
+    description: z.string()
+  })).default([]),
+  status: z.enum(["draft", "processing", "ready", "error"]).default("draft"),
+  validationResults: z.object({
+    issues: z.array(z.object({
+      line: z.number(),
+      type: z.string(),
+      message: z.string(),
+      suggestion: z.string().optional()
+    })),
+    score: z.number()
+  }).optional(),
+  versions: z.array(z.object({
+    id: z.string(),
+    timestamp: z.date(),
+    content: z.string(),
+    type: z.enum(["original", "processed"]),
+    changes: z.string().optional(),
+    score: z.number().optional()
+  })).default([]),
 });
 
 export const updateTranscriptSchema = createInsertSchema(transcripts).pick({
